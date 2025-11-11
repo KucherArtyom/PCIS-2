@@ -14,6 +14,13 @@ http://localhost:8000/api/auth/token/
 
 <img width="1920" height="1017" alt="image" src="https://github.com/user-attachments/assets/52616251-e26a-477b-8021-b98e40caad24" />
 
+### Получение списка клубов
+
+http://127.0.0.1:8000/api/clubs/
+
+<img width="1920" height="1031" alt="image" src="https://github.com/user-attachments/assets/30d0eedc-a85a-41af-b822-4f47093838cd" />
+
+
 #### Получение списка соревнований GET
 
 http://localhost:8000/api/competitions/
