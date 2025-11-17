@@ -251,8 +251,10 @@ class PlayerViewSet(viewsets.GenericViewSet):
 # Create your views here.
 
 class AuthViewSet(viewsets.GenericViewSet):
-    permission_classes = [AllowAny]
-
+    def get_permissions(self):
+        if self.action == 'check_admin_status':
+            return [IsAuthenticated()]
+        return [AllowAny()]
     @action(detail=False, methods=['post'])
     def register(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
@@ -291,12 +293,27 @@ class AuthViewSet(viewsets.GenericViewSet):
             return Response(serializer.data)
         return Response({'detail': 'Не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def check_admin_status(self, request):
+        print(f"Checking admin status for user: {request.user}, is_staff: {request.user.is_staff}")
+        is_admin = request.user.is_staff
+        if is_admin:
+            serializer = AdminUserSerializer(request.user)
+            return Response({
+                'is_admin': True,
+                'user': serializer.data
+            })
+        else:
+            return Response({
+                'is_admin': False,
+                'message': 'Недостаточно прав'
+            })
 
 from rest_framework.permissions import IsAdminUser
 
-
+'''
 class AdminAuthViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
     @action(detail=False, methods=['get'])
     def check_admin(self, request):
@@ -311,13 +328,57 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
                 'is_admin': False,
                 'message': 'Недостаточно прав'
             }, status=status.HTTP_403_FORBIDDEN)
+'''
+'''
+class AdminAuthViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
+    @action(detail=False, methods=['get'])
+    def check_admin(self, request):
+        serializer = AdminUserSerializer(request.user)
+        return Response({
+            'is_admin': True,
+            'user': serializer.data
+        })
+'''
+
+
+class AdminAuthViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def check_admin(self, request):
+        is_admin = request.user.is_staff or request.user.is_superuser
+
+        if is_admin:
+            serializer = AdminUserSerializer(request.user)
+            return Response({
+                'is_admin': True,
+                'user': serializer.data
+            })
+        else:
+            return Response({
+                'is_admin': False,
+                'message': 'Недостаточно прав'
+            }, status=status.HTTP_403_FORBIDDEN)
+'''
 class AdminBaseViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
+'''
 
+
+class AdminBaseViewSet(viewsets.GenericViewSet):
+    def get_permissions(self):
+        permission_classes = [IsAuthenticated]
+
+        if self.action != 'check_admin':
+            permission_classes = [IsAuthenticated, IsAdminUser]
+
+        return [permission() for permission in permission_classes]
 
 class GamesAdminViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = []
+    authentication_classes = []
     serializer_class = GameAdminSerializer
 
     def get_queryset(self):
@@ -411,7 +472,8 @@ class GamesAdminViewSet(viewsets.GenericViewSet):
 
 
 class PlayersAdminViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = []
+    authentication_classes = []
     serializer_class = PlayerAdminSerializer
 
     def get_queryset(self):
@@ -419,6 +481,9 @@ class PlayersAdminViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def options(self, request):
+        user = User.objects.get(username='admin')
+        print(f"is_staff: {user.is_staff}")
+        print(f"is_superuser: {user.is_superuser}")
         clubs = Clubs.objects.values_list('name', flat=True).distinct().order_by('name')
         players = Players.objects.values_list('name', flat=True).distinct().order_by('name')
 
@@ -518,7 +583,8 @@ class PlayersAdminViewSet(viewsets.GenericViewSet):
 
 
 class ClubsAdminViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = []
+    authentication_classes = []
     serializer_class = ClubAdminSerializer
 
     def get_queryset(self):
@@ -617,7 +683,8 @@ class ClubsAdminViewSet(viewsets.GenericViewSet):
 
 
 class TransfersAdminViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = []
+    authentication_classes = []
     serializer_class = TransferAdminSerializer
 
     def get_queryset(self):

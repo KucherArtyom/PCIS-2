@@ -127,7 +127,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         UserProfile.objects.create(user=user, phone=phone)
 
         return user
-
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
@@ -147,10 +146,10 @@ class UserLoginSerializer(serializers.Serializer):
 
 class UserSerializer(serializers.ModelSerializer):
     phone = serializers.CharField(source='userprofile.phone', read_only=True)
-
+    is_staff = serializers.BooleanField(read_only=True)
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'phone', 'first_name', 'last_name')
+        fields = ('id', 'username', 'email', 'phone', 'first_name', 'last_name', 'is_staff')
 
 
 
@@ -160,6 +159,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'is_admin')
+
 
 
 class GameCreateSerializer(serializers.ModelSerializer):
