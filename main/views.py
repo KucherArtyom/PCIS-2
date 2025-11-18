@@ -9,6 +9,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
 from django.db import connection
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import Clubs, Transfers, Games, GameEvents, Players
 from .serializers import ClubSerializer, TransferSerializer, GameSerializer, GameEventSerializer, SimpleGameSerializer, ClubDetailSerializer, ClubPlayerSerializer, SimplePlayerSerializer, PlayerDetailSerializer
 from .serializers import UserRegistrationSerializer, UserLoginSerializer, UserSerializer, AdminUserSerializer
@@ -255,16 +258,25 @@ class AuthViewSet(viewsets.GenericViewSet):
         if self.action == 'check_admin_status':
             return [IsAuthenticated()]
         return [AllowAny()]
+
     @action(detail=False, methods=['post'])
     def register(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            login(request, user)
+
+            refresh = RefreshToken.for_user(user)
+            tokens = {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+
             user_data = UserSerializer(user).data
+
             return Response({
                 'message': 'Регистрация успешна',
-                'user': user_data
+                'user': user_data,
+                'tokens': tokens
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -273,24 +285,66 @@ class AuthViewSet(viewsets.GenericViewSet):
         serializer = UserLoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            login(request, user)
+
+            refresh = RefreshToken.for_user(user)
+            tokens = {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+
             user_data = UserSerializer(user).data
+
             return Response({
                 'message': 'Вход выполнен успешно',
-                'user': user_data
+                'user': user_data,
+                'tokens': tokens
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])
     def logout(self, request):
-        logout(request)
-        return Response({'message': 'Выход выполнен успешно'})
+        try:
+            refresh_token = request.data.get('refresh_token')
+            if refresh_token:
+                try:
+                    token = RefreshToken(refresh_token)
+                    token.blacklist()
+                except Exception as e:
+                    print(f"Token blacklist error: {e}")
+
+            return Response({'message': 'Выход выполнен успешно'})
+        except Exception as e:
+            return Response({'message': 'Выход выполнен'})
+
+    @action(detail=False, methods=['post'])
+    def refresh(self, request):
+        try:
+            refresh_token = request.data.get('refresh')
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                return Response({
+                    'access': str(token.access_token),
+                })
+            return Response({'error': 'Refresh token required'}, status=400)
+        except Exception as e:
+            return Response({'error': 'Invalid token'}, status=400)
 
     @action(detail=False, methods=['get'])
     def user(self, request):
+        jwt_authenticator = JWTAuthentication()
+        try:
+            user_auth_tuple = jwt_authenticator.authenticate(request)
+            if user_auth_tuple is not None:
+                user, token = user_auth_tuple
+                serializer = UserSerializer(user)
+                return Response(serializer.data)
+        except Exception as e:
+            print(f"JWT auth failed: {e}")
+
         if request.user.is_authenticated:
             serializer = UserSerializer(request.user)
             return Response(serializer.data)
+
         return Response({'detail': 'Не авторизован'}, status=status.HTTP_401_UNAUTHORIZED)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
@@ -308,39 +362,7 @@ class AuthViewSet(viewsets.GenericViewSet):
                 'is_admin': False,
                 'message': 'Недостаточно прав'
             })
-
 from rest_framework.permissions import IsAdminUser
-
-'''
-class AdminAuthViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    @action(detail=False, methods=['get'])
-    def check_admin(self, request):
-        if request.user.is_staff:
-            serializer = AdminUserSerializer(request.user)
-            return Response({
-                'is_admin': True,
-                'user': serializer.data
-            })
-        else:
-            return Response({
-                'is_admin': False,
-                'message': 'Недостаточно прав'
-            }, status=status.HTTP_403_FORBIDDEN)
-'''
-'''
-class AdminAuthViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    @action(detail=False, methods=['get'])
-    def check_admin(self, request):
-        serializer = AdminUserSerializer(request.user)
-        return Response({
-            'is_admin': True,
-            'user': serializer.data
-        })
-'''
 
 
 class AdminAuthViewSet(viewsets.GenericViewSet):
@@ -361,10 +383,6 @@ class AdminAuthViewSet(viewsets.GenericViewSet):
                 'is_admin': False,
                 'message': 'Недостаточно прав'
             }, status=status.HTTP_403_FORBIDDEN)
-'''
-class AdminBaseViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, IsAdminUser]
-'''
 
 
 class AdminBaseViewSet(viewsets.GenericViewSet):

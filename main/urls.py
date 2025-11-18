@@ -2,6 +2,8 @@ from django.http import JsonResponse
 from django.urls import path, include
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenVerifyView
+
 from . import views
 
 router = DefaultRouter()
@@ -23,4 +25,5 @@ def get_csrf(request):
 urlpatterns = [
     path('', include(router.urls)),
     path('auth/csrf/', get_csrf),
+    path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 ]

@@ -1,5 +1,7 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import Clubs, Transfers, Players, Games, GameEvents
 #from .models import CustomUser
 from django.contrib.auth.models import User
@@ -125,7 +127,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
 
         UserProfile.objects.create(user=user, phone=phone)
-
         return user
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
