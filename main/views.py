@@ -29,6 +29,7 @@ class ClubViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ClubSerializer
 
 class TransferViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated]
     @action(detail=False, methods=['get'])
     def search(self, request):
         from_club_id = request.GET.get('from_club')
@@ -76,6 +77,7 @@ class TransferViewSet(viewsets.GenericViewSet):
 
 class GameViewSet(viewsets.GenericViewSet):
     serializer_class = SimpleGameSerializer
+    permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['get'])
     def search_options(self, request):
@@ -218,10 +220,19 @@ class ClubViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception as e:
             return Response({'detail': f'Ошибка при загрузке логотипа: {str(e)}'}, status=500)
 
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'logo']:
+            # Разрешаем просмотр списка и деталей клубов всем
+            return [AllowAny()]
+        else:
+            # Для остальных действий (detail, players, search, logo) требуем аутентификацию
+            return [IsAuthenticated()]
+
 
 class PlayerViewSet(viewsets.GenericViewSet):
     queryset = Players.objects.all()
     serializer_class = SimplePlayerSerializer
+    permission_classes = [IsAuthenticated]
 
     @action(detail=False, methods=['get'])
     def clubs(self, request):
